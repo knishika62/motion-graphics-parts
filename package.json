@@ -1,0 +1,22 @@
+{
+  "name": "motion-graphics-parts",
+  "private": true,
+  "version": "0.1.0",
+  "description": "部品(配置・動き・背景・飾り・アイコン・雰囲気)を組み合わせて、モーショングラフィックスの動画を書き出す。何をどう使うかは、AI(エージェント)が PARTS.md を読んで決める",
+  "scripts": {
+    "gen": "node scripts/gen-sources.mjs",
+    "studio": "node scripts/prepare.mjs && npm run gen && remotion studio src/index.ts",
+    "render": "node scripts/render.mjs",
+    "parts": "node scripts/parts_doc.mjs"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.532",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "lucide-react": "^1.52.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "remotion": "^4.0.532",
+    "typescript": "^7.0.2"
+  }
+}

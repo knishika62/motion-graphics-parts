@@ -1,0 +1,15 @@
+{
+  "title": "ハロウィンの夜",
+  "scenes": [
+    {"tech": "compose", "lines": ["Trick or", "Treat?"], "caption": "今夜だけ", "sec": 3,
+     "layers": {"layout": "center", "motion": "elastic", "bg": "stars", "decor": "sparkle", "icon": "Ghost"}},
+    {"tech": "compose", "lines": ["今夜だけの", "仮装", "パーティー"], "sec": 4,
+     "layers": {"layout": "left", "motion": "rise", "bg": "photofull", "decor": "none", "icon": null, "pick": [1]}},
+    {"tech": "compose", "lines": ["おばけも、", "魔女も、", "みんな主役"], "sec": 4.5,
+     "layers": {"layout": "pics", "motion": "slide", "bg": "gradient", "decor": "underline", "icon": "Candy", "pick": [2, 3, 1]}},
+    {"tech": "compose", "lines": ["夜が、", "動き出す"], "sec": 4,
+     "layers": {"layout": "center", "motion": "zoomout", "bg": "videofull", "decor": "none", "icon": null, "pick": [1]}},
+    {"tech": "compose", "lines": ["Happy", "Halloween!"], "sec": 4,
+     "layers": {"layout": "hero", "motion": "wobble", "bg": "sunburst", "decor": "confetti", "icon": "PartyPopper"}}
+  ]
+}

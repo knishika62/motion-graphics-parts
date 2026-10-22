@@ -1,0 +1,25 @@
+{
+  "title": "曲に合わせる見本",
+  "bpm": 112,
+  "beatOffset": 0.07,
+  "lyricKeywords": ["Trick or Love", "仮面"],
+  "scenes": [
+    {"tech": "compose", "lines": [], "sec": 3.214,
+     "layers": {"layout": "none", "motion": "rise", "bg": "photofull", "decor": "none", "icon": null, "pick": [1]}},
+    {"tech": "compose", "lines": ["仮面の", "下"], "sec": 4.286,
+     "layers": {"layout": "left", "motion": "slide", "bg": "photofull", "decor": "none", "icon": "Sparkles", "pick": [2], "valign": "bottom"}},
+    {"tech": "compose", "lines": ["みんな", "主役"], "sec": 4.286,
+     "layers": {"layout": "pics", "motion": "bounce", "bg": "gradient", "decor": "underline", "icon": "Candy", "pick": [1, 2, 3], "valign": "top"}},
+    {"tech": "compose", "lines": [], "sec": 3.214,
+     "layers": {"layout": "none", "motion": "rise", "bg": "videofull", "decor": "none", "icon": null, "pick": [1]}},
+    {"tech": "compose", "lines": ["Happy", "Halloween!"], "sec": 4.286,
+     "layers": {"layout": "hero", "motion": "wobble", "bg": "sunburst", "decor": "confetti", "icon": "PartyPopper", "valign": "top"}}
+  ],
+  "lyrics": [
+    {"start": 0.1, "end": 3.0, "text": "鏡の前で仮面をつけて", "fx": "bounce"},
+    {"start": 3.4, "end": 7.3, "text": "仮面の下覗かないでよ", "fx": "swing", "pos": "top"},
+    {"start": 7.7, "end": 11.6, "text": "Trick or Love 月が沈むまでに", "fx": "wave"},
+    {"start": 11.9, "end": 14.9, "text": "夜が明けても隣にいて", "fx": "slide"},
+    {"start": 15.1, "end": 19.0, "text": "カボチャの灯りが消えてく", "fx": "drop"}
+  ]
+}

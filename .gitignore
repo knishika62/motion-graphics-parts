@@ -1,0 +1,21 @@
+# 依存・生成物・実行の記録は、リポジトリに入れない
+node_modules/
+.DS_Store
+*.log
+
+# 動画・実行ごとの記録(台本・ログ・レポート)
+out/
+runs/
+
+# 書き出しのたびに作り直されるファイル(Remotion が読む)
+public/
+src/scenario.json
+src/timeline.json
+src/sources.ts
+
+# 素材(写真・動画・曲)。各自が用意する
+assets/
+
+# お題md(実行ごとに作る。公開するものは examples/ へ)
+topics/
+examples/mv_お題.md
