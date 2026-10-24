@@ -7,7 +7,10 @@
     "gen": "node scripts/gen-sources.mjs",
     "studio": "node scripts/prepare.mjs && npm run gen && remotion studio src/index.ts",
     "render": "node scripts/render.mjs",
-    "parts": "node scripts/parts_doc.mjs"
+    "parts": "node scripts/parts_doc.mjs",
+    "parts:check": "node scripts/parts_doc.mjs --check",
+    "typecheck": "node scripts/prepare.mjs && node scripts/gen-sources.mjs && tsc --noEmit",
+    "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
     "@remotion/cli": "^4.0.532",
@@ -18,5 +21,8 @@
     "react-dom": "^19.3.0",
     "remotion": "^4.0.532",
     "typescript": "^7.0.2"
+  },
+  "engines": {
+    "node": ">=20.11"
   }
 }

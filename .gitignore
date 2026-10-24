@@ -19,3 +19,4 @@ assets/
 # お題md(実行ごとに作る。公開するものは examples/ へ)
 topics/
 examples/mv_お題.md
+__pycache__/

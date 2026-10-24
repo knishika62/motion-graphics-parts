@@ -14,8 +14,9 @@ if (!video) { console.error('使い方: node tools/check_face_text.mjs out/名�
 if (process.platform !== 'darwin') { console.error('このツールは macOS 専用です(Vision を使う)'); process.exit(1); }
 const every = +opt('--every', 1.5), dur = +spawnSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', video], {encoding: 'utf-8'}).stdout;
 if (!(dur > 0)) { console.error('動画の長さを読めない: ' + video); process.exit(1); }
-const dir = args.includes('--keep') ? path.join(path.dirname(path.resolve(video)), '..', 'runs', path.basename(video, path.extname(video)), 'check_faces') : fs.mkdtempSync(path.join(os.tmpdir(), 'face_text_'));
+const dir = args.includes('--keep') ? path.resolve(path.dirname(path.resolve(video)), '..', 'runs', path.basename(video, path.extname(video)), 'check_faces') : fs.mkdtempSync(path.join(os.tmpdir(), 'face_text_'));
 fs.mkdirSync(dir, {recursive: true});
+const cleanup = () => { if (!args.includes('--keep')) fs.rmSync(dir, {recursive: true, force: true}); };     // 途中で止まっても、一時ディレクトリを残さない
 const files = [];
 for (let t = every / 2; t < dur; t += every) {
   const f = path.join(dir, `t${t.toFixed(2).padStart(6, '0')}.png`);
@@ -23,7 +24,7 @@ for (let t = every / 2; t < dur; t += every) {
   if (r.status === 0) files.push(f);
 }
 const r = spawnSync('swift', [path.join(import.meta.dirname, 'check_face_text.swift'), ...files], {encoding: 'utf-8', env: {...process.env, FACE_TEXT_THRESHOLD: opt('--threshold', '0.06')}, maxBuffer: 1 << 26});
-if (r.status !== 0) { console.error('swift の実行に失敗(Xcode のコマンドラインツールが必要):\n' + (r.stderr || '').slice(-400)); process.exit(1); }
+if (r.status !== 0) { console.error('swift の実行に失敗(Xcode のコマンドラインツールが必要):\n' + (r.stderr || '').slice(-400)); cleanup(); process.exit(1); }
 let ng = 0, noFace = 0;
 for (const line of r.stdout.trim().split('\n')) {
   const [name, faces, texts, res] = line.split('\t'), t = parseFloat(name.slice(1, -4));
@@ -31,5 +32,5 @@ for (const line of r.stdout.trim().split('\n')) {
   if (res !== 'OK') { ng++; console.log(`${t.toFixed(1)}秒  ${faces}  ${texts}  ${res}`); }
 }
 console.log(`${files.length}コマを確認(${every}秒ごと)。顔にかかっている文字: ${ng}コマ / 顔が見つからなかったコマ: ${noFace}コマ${ng ? '' : '(問題なし)'}`);
-if (!args.includes('--keep')) fs.rmSync(dir, {recursive: true, force: true}); else console.log('取り出したコマ: ' + dir);
+if (args.includes('--keep')) console.log('取り出したコマ: ' + dir); else cleanup();
 process.exit(ng ? 2 : 0);

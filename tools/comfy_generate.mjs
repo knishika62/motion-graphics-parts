@@ -8,6 +8,8 @@
 // ワークフロー: ComfyUI の「API形式」で保存したJSON(メニューの「Save (API Format)」)。
 //   プロンプト・ネガティブ・画像の大きさ・シード・保存名のノードは、KSampler の接続をたどって、自動で見つける(ノード番号は、いらない)。
 //   見つからない・違うノードを使いたいときは、--prompt-node / --negative-node / --size-node / --seed-node / --save-node でノード番号を指定する。
+//   --prefix は、保存ノード(SaveImage)があるときだけ効く(ComfyUI 側の保存名)。出力の場所と名前は、--out / --outdir と jobs の file が決める。
+//   --timeout 秒: 1枚あたりの待ち時間(既定600秒)。
 // 出力: 拡張子が .jpg / .jpeg / .webp なら、ffmpeg で変換して保存。.png ならそのまま。
 // 環境変数: COMFYUI_URL(必須。--url でも指定できる)。
 import fs from 'node:fs';
@@ -19,6 +21,7 @@ if (has('--help') || has('-h') || !opt('--workflow')) { console.log(fs.readFileS
 const URL_ = (opt('--url', process.env.COMFYUI_URL) || '').replace(/\/$/, '');
 if (!URL_) { console.error('COMFYUI_URL が未設定です(例: COMFYUI_URL=http://localhost:8188)。--url でも指定できます'); process.exit(1); }
 
+const TIMEOUT_S = Math.max(1, Math.round(+opt('--timeout', 600)) || 600);
 const wf0 = JSON.parse(fs.readFileSync(path.resolve(opt('--workflow')), 'utf-8'));
 if (wf0.nodes && wf0.links) { console.error('このワークフローは、画面用の形式です。ComfyUI の「Save (API Format)」で保存した、API形式のJSONを指定してください'); process.exit(1); }
 
@@ -35,7 +38,8 @@ function detect(wf) {
   // ネガティブ・ポジティブが、途中のノード(ConditioningXxx)を経由していたら、その先の CLIPTextEncode まで、さかのぼる
   const toText = id => { for (let i = 0; i < 6 && id && wf[id] && !('text' in (wf[id].inputs || {})); i++) id = link(Object.values(wf[id].inputs).find(v => Array.isArray(v) && wf[String(v[0])] && /Conditioning|CLIPTextEncode/.test(wf[String(v[0])].class_type))); return id; };
   nodes.positive = toText(nodes.positive); nodes.negative = toText(nodes.negative);
-  for (const [name, id] of Object.entries(nodes)) if (!id || !wf[id]) throw new Error(`ノード「${name}」を自動で見つけられない(--${name === 'positive' ? 'prompt' : name}-node で番号を指定)`);
+  const FLAG = {positive: '--prompt-node', negative: '--negative-node', size: '--size-node', seed: '--seed-node', save: '--save-node'};
+  for (const [name, id] of Object.entries(nodes)) if (!id || !wf[id]) throw new Error(`ノード「${name}」を自動で見つけられない(${FLAG[name]} でノード番号を指定)`);
   return nodes;
 }
 
@@ -49,7 +53,7 @@ async function generate(job) {
   const r = await fetch(URL_ + '/prompt', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({prompt: wf})});
   if (!r.ok) throw new Error(`ComfyUI ${r.status}: ${(await r.text()).slice(0, 400)}`);
   const id = (await r.json()).prompt_id;
-  for (let i = 0; i < 600; i++) {                                                  // 最大10分
+  for (let i = 0; i < TIMEOUT_S; i++) {                                            // 1枚あたりの待ち時間(既定10分。--timeout 秒)
     await new Promise(res => setTimeout(res, 1000));
     const h = (await (await fetch(`${URL_}/history/${id}`)).json())[id]; if (!h) continue;
     if (h.status?.status_str === 'error') throw new Error('生成エラー: ' + JSON.stringify(h.status.messages).slice(0, 400));

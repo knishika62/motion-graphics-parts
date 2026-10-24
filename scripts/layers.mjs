@@ -44,4 +44,5 @@ export const LYRIC_FX = {bounce: '下から跳ね上がる。拍で跳ねる', d
 export const LYRIC_POS = {bottom: '画面の下(既定)', middle: '画面の中央', top: '画面の上'};
 // 場面の文字全体を崩す指定(layers.tilt / scale / shift)の、範囲
 export const TEXT_KNOBS = {tilt: [-25, 25], scale: [0.5, 1.8], shift: [-600, 600]};
+export const CAPTION_MAX = 16;                                         // caption(画面の下の補足)の文字数の上限。検査(theme.mjs)と PARTS.md(parts_doc.mjs)が、ここを読む
 export const limitsOfLayout = name => (LAYOUTS[name] || LAYOUTS.center).lines;

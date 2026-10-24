@@ -1,16 +1,15 @@
 // PARTS.md(部品と使い方。AIエージェント向け)を、部品の定義(layers.mjs・icons.mjs・moods.mjs)から作る。部品を足したら、これを実行して作り直す。
-//   node scripts/parts_doc.mjs        → PARTS.md を書き出す
+//   node scripts/parts_doc.mjs          → PARTS.md を書き出す
+//   node scripts/parts_doc.mjs --check  → PARTS.md が、いまの部品の定義と同じか調べる(違えば、終了コード1。書き換えない)
 import fs from 'node:fs';
 import path from 'node:path';
 import {ROOT} from './common.mjs';
-import {BGS, DECORS, LAYOUTS, LYRIC_FX, LYRIC_POS, MEDIA_BGS, MOTIONS, PMOTIONS, TEXT_KNOBS, VALIGNS} from './layers.mjs';
+import {BGS, CAPTION_MAX, DECORS, LAYOUTS, LYRIC_FX, LYRIC_POS, MEDIA_BGS, MOTIONS, PMOTIONS, TEXT_KNOBS, VALIGNS} from './layers.mjs';
 import {ICON_GROUPS} from './icons.mjs';
 import {MOODS} from './moods.mjs';
-const CAPTION_MAX = 16;
 
-const NEEDS_DATA = ['bars', 'ring', 'shot', 'chart'];
 const rangeOf = lim => { const mx = lim.map(x => x[1]); return `${lim[0][0]}〜${lim.length}行・` + (new Set(mx).size === 1 ? `各行${mx[0]}文字まで` : `1行目${mx[0]}・2行目${mx[1]}${mx[2] ? '・3行目' + mx[2] : ''}文字まで`); };
-const layoutRows = Object.entries(LAYOUTS).filter(([k]) => !NEEDS_DATA.includes(k)).map(([k, v]) => `| \`${k}\` | ${rangeOf(v.lines)} | ${v.note.replace(/\|/g, '/')} |`).join('\n');
+const layoutRows = Object.entries(LAYOUTS).map(([k, v]) => `| \`${k}\` | ${rangeOf(v.lines)} | ${v.note.replace(/\|/g, '/')} |`).join('\n');
 const list = o => Object.entries(o).map(([k, v]) => `| \`${k}\` | ${String(v).replace(/\|/g, '/')} |`).join('\n');
 const moodRows = Object.entries(MOODS).map(([k, v]) => `| \`${k}\` | ${v.desc.replace(/\|/g, '/')} |`).join('\n');
 const iconRows = Object.entries(ICON_GROUPS).map(([k, v]) => `- **${k}**: ${v.join(' ')}`).join('\n');
@@ -313,5 +312,9 @@ ffmpeg -i out/<名前>.mp4 -vf "fps=16/<秒数>,scale=480:-2,tile=4x4" -frames:v
 - **写真に人物がいるときは、顔の位置を、画像を見て確かめ、文字がかからないように**\`valign\`(上・下)か、配置(\`left\`・\`corner\` など)を選ぶ。歌詞も、顔にかかるなら、\`pos\` を変える。
 - 曲があるときは、歌詞は \`lyrics\` に書き、場面の文字(lines)は、少なくするか、\`none\` にする(歌詞と、場面の文字が、同じ位置で重ならないように)。
 `;
-fs.writeFileSync(path.join(ROOT, 'PARTS.md'), doc);
-console.log('PARTS.md:', doc.length, '文字');
+const target = path.join(ROOT, 'PARTS.md');
+if (process.argv.includes('--check')) {
+  const now = fs.existsSync(target) ? fs.readFileSync(target, 'utf-8') : null;
+  if (now !== doc) { console.error('PARTS.md が、部品の定義と違う。node scripts/parts_doc.mjs で作り直す'); process.exit(1); }
+  console.log('PARTS.md: 最新');
+} else { fs.writeFileSync(target, doc); console.log('PARTS.md:', doc.length, '文字'); }

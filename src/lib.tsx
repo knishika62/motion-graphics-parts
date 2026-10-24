@@ -36,7 +36,10 @@ export const STYLE: {lp: LpInfo | null; logo: LogoInfo | null; opener: string; a
 export const CALM = {v: 1};                                             // いまの場面の落ち着き度(Stage が、描画のたびに更新する)
 export const amp = (v: number) => v * STYLE.amp * CALM.v;
 // 強調色の上に載せる文字・絵の色。強調色が明るい(蛍光色など)ときは、黒に近い色にして、読めるようにする
-export const onAccent = (hex: string) => (/^#[0-9a-fA-F]{6}$/.test(hex) && isLight(hex) ? '#111111' : '#ffffff');                       // 揺れ・弾みの大きさに掛ける
+const lumOf = (hex: string) => { const v = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(x => (x <= .03928 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4)); return .2126 * v[0] + .7152 * v[1] + .0722 * v[2]; };
+const ratio = (a: string, b: string) => { const [x, y] = [lumOf(a), lumOf(b)].sort((p, q) => q - p); return (x + .05) / (y + .05); };
+// 強調色の上に載せる文字色: 白を基本に、白のコントラスト比が3未満(読みにくい)のときだけ、白より比の高い黒に切り替える
+export const onAccent = (hex: string) => (/^#[0-9a-fA-F]{6}$/.test(hex) && ratio(hex, '#ffffff') < 3 && ratio(hex, '#111111') > ratio(hex, '#ffffff') ? '#111111' : '#ffffff');                       // 揺れ・弾みの大きさに掛ける
 export const isLight = (hex: string) => { const v = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255); return .2126 * v[0] + .7152 * v[1] + .0722 * v[2] > .5; };   // 文字色が明るいか(縁取り・ブロックの色を切り替えるため)
 // ===== 書体 =====
 export type Fk = 'g' | 'm' | 'r' | 'k';

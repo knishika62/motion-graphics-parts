@@ -2,15 +2,13 @@
 //   お題から、何をどう使うかは、AI(エージェント)が考える。PARTS.md を読ませて、台本(runs/<名前>/scenario.json)を書かせる。
 import fs from 'node:fs';
 import path from 'node:path';
-import {ROOT, cfg, run} from './common.mjs';
-import {BGS, DECORS, LAYOUTS, LYRIC_FX, LYRIC_POS, MEDIA_BGS, MOTIONS, PMOTIONS, TEXT_KNOBS, VALIGNS, limitsOfLayout} from './layers.mjs';
+import {ROOT, run} from './common.mjs';
+import {BGS, CAPTION_MAX, DECORS, LAYOUTS, LYRIC_FX, LYRIC_POS, MEDIA_BGS, MOTIONS, PMOTIONS, TEXT_KNOBS, VALIGNS, limitsOfLayout} from './layers.mjs';
 import {ICON_NAMES} from './icons.mjs';
 
-const CAPTION_MAX = 16;
 const IMG = ['png', 'jpg', 'jpeg', 'webp'], VID = ['mp4', 'webm', 'mov'], MIN_SEC = 2;
 const extOf = f => path.extname(f).slice(1).toLowerCase();
 const kindOf = f => (IMG.includes(extOf(f)) ? 'photo' : VID.includes(extOf(f)) ? 'video' : null);
-const NEEDS_DATA = ['bars', 'ring', 'shot', 'chart'];               // 数字や、サイトの画面が要る配置は、テーマ動画では使わない
 
 export const isTheme = md => /^>\s*種類\s*[:：]\s*テーマ/m.test(md);
 
@@ -72,14 +70,18 @@ export function splitLine(text, max) {
 
 // ---- AI(エージェント)が書いた台本(scenario.json)の検査: 配置ごとの行数・文字数、部品の名前、素材の番号 ----
 export function validateTheme(sc, media, theme) {
-  const S = sc?.scenes; if (!Array.isArray(S) || S.length < 3 || S.length > 14) return ['scenes は、3〜14個の配列にする'];
+  if (!sc || typeof sc !== 'object' || Array.isArray(sc)) return ['台本は、JSON の {…}(オブジェクト)にする'];
+  const S = sc.scenes; if (!Array.isArray(S) || S.length < 3 || S.length > 14) return ['scenes は、3〜14個の配列にする'];
   const err = [], nP = Object.values(media.index).filter(m => m.kind === 'photo').length, nV = Object.values(media.index).filter(m => m.kind === 'video').length;
-  const layouts = Object.keys(LAYOUTS).filter(k => !NEEDS_DATA.includes(k)), bgs = [...Object.keys(BGS), ...Object.keys(MEDIA_BGS)];
+  const layouts = Object.keys(LAYOUTS), bgs = [...Object.keys(BGS), ...Object.keys(MEDIA_BGS)];
   S.forEach((s, i) => {
-    const w = `場面${i + 1}`, L = s.layers || {};
+    const w = `場面${i + 1}`;
+    if (!s || typeof s !== 'object') return err.push(`${w}: {…}(オブジェクト)にする`);
+    if (s.layers !== undefined && (!s.layers || typeof s.layers !== 'object' || Array.isArray(s.layers))) return err.push(`${w}: layers は、{…}(オブジェクト)にする`);
+    const L = s.layers || {};
     if (s.tech !== 'compose') err.push(`${w}: tech は "compose" にする(テーマ動画は compose だけ)`);
     if (!layouts.includes(L.layout)) err.push(`${w}: layers.layout 「${L.layout}」は使えない。使えるもの: ${layouts.join(', ')}`);
-    else if (!Array.isArray(s.lines)) err.push(`${w}: lines が配列でない`);
+    else if (!Array.isArray(s.lines) || s.lines.some(l => typeof l !== 'string')) err.push(`${w}: lines は、文字列の配列にする`);
     else if (L.layout === 'none') { if (s.lines.length) err.push(`${w}: none(文字なし)の lines は、空の配列 [] にする`); }
     else {
       const lim = limitsOfLayout(L.layout);
@@ -89,7 +91,7 @@ export function validateTheme(sc, media, theme) {
     if (L.motion && !(L.motion in MOTIONS)) err.push(`${w}: layers.motion 「${L.motion}」は使えない`);
     if (L.bg && !bgs.includes(L.bg)) err.push(`${w}: layers.bg 「${L.bg}」は使えない`);
     if (L.decor && !(L.decor in DECORS)) err.push(`${w}: layers.decor 「${L.decor}」は使えない`);
-    if (L.icon && !ICON_NAMES.has(L.icon)) err.push(`${w}: layers.icon 「${L.icon}」は、アイコンの一覧にない`);
+    if (L.icon && (typeof L.icon !== 'string' || !ICON_NAMES.has(L.icon))) err.push(`${w}: layers.icon 「${L.icon}」は、アイコンの一覧にない`);
     if (L.icons !== undefined) {
       if (!Array.isArray(L.icons) || L.icons.some(n => typeof n !== 'string' || !ICON_NAMES.has(n))) err.push(`${w}: layers.icons は、アイコンの名前の配列(例: ["Ghost","Candy","Moon"])。アイコンの一覧にある名前だけ`);
       else if (L.icons.length > (L.iconsStyle === 'float' ? 9 : 24)) err.push(`${w}: layers.icons は${L.iconsStyle === 'float' ? 9 : 24}個まで(いま${L.icons.length}個)`);
@@ -101,27 +103,30 @@ export function validateTheme(sc, media, theme) {
     const kind = ['pic', 'pics'].includes(L.layout) || ['photo', 'photofull'].includes(L.bg) ? 'photo' : ['clip', 'clips'].includes(L.layout) || ['video', 'videofull'].includes(L.bg) ? 'video' : null, cnt = kind === 'photo' ? nP : nV;
     if (kind && !cnt) err.push(`${w}: ${kind === 'photo' ? '写真' : '動画'}の素材が無いのに、${L.layout} / ${L.bg} を使っている`);
     if (L.pick !== undefined) { if (!Array.isArray(L.pick) || !L.pick.length || L.pick.some(k => !Number.isInteger(k) || k < 1 || k > cnt)) err.push(`${w}: layers.pick は、1〜${cnt}の整数の配列(${kind === 'video' ? '動画' : '写真'}の何番目か)`); else if (!kind) err.push(`${w}: layers.pick があるのに、素材を使う配置・背景ではない`); }
-    if (s.caption && [...String(s.caption)].length > CAPTION_MAX) err.push(`${w}: caption は${CAPTION_MAX}文字以内`);
+    if (s.caption !== undefined && typeof s.caption !== 'string') err.push(`${w}: caption は、文字列にする`);
+    else if (s.caption && [...s.caption].length > CAPTION_MAX) err.push(`${w}: caption は${CAPTION_MAX}文字以内`);
+    if (s.fs !== undefined && !(typeof s.fs === 'number' && s.fs >= 0.5 && s.fs <= 1.5)) err.push(`${w}: fs(文字サイズの倍率)は、0.5〜1.5(数。省略は1)`);
     if (L.tilt !== undefined && !(typeof L.tilt === 'number' && L.tilt >= TEXT_KNOBS.tilt[0] && L.tilt <= TEXT_KNOBS.tilt[1])) err.push(`${w}: layers.tilt は、${TEXT_KNOBS.tilt[0]}〜${TEXT_KNOBS.tilt[1]}(度。数)`);
     if (L.scale !== undefined && !(typeof L.scale === 'number' && L.scale >= TEXT_KNOBS.scale[0] && L.scale <= TEXT_KNOBS.scale[1])) err.push(`${w}: layers.scale は、${TEXT_KNOBS.scale[0]}〜${TEXT_KNOBS.scale[1]}(倍。数)`);
     if (L.shift !== undefined && !(Array.isArray(L.shift) && L.shift.length === 2 && L.shift.every(v => typeof v === 'number' && v >= TEXT_KNOBS.shift[0] && v <= TEXT_KNOBS.shift[1]))) err.push(`${w}: layers.shift は、[右へ, 下へ](px。それぞれ ${TEXT_KNOBS.shift[0]}〜${TEXT_KNOBS.shift[1]}。数の配列)`);
     if (L.valign !== undefined && !(L.valign in VALIGNS)) err.push(`${w}: layers.valign 「${L.valign}」は使えない。使えるもの: ${Object.keys(VALIGNS).join(', ')}`);
-    if (s.sec !== undefined && !(s.sec >= 2 && s.sec <= 60)) err.push(`${w}: sec は、2〜60(秒)`);
+    if (s.sec !== undefined && !(typeof s.sec === 'number' && s.sec >= 2 && s.sec <= 60)) err.push(`${w}: sec は、2〜60(秒。数)`);
   });
   // 歌詞(lyrics): 場面とは別に、時刻つきで重ねる
-  if (sc.bpm !== undefined && !(sc.bpm >= 40 && sc.bpm <= 240)) err.push('bpm は、40〜240');
-  for (const k of ['fadeIn', 'fadeOut']) if (sc[k] !== undefined && !(typeof sc[k] === 'number' && sc[k] >= 0 && sc[k] <= 5)) err.push(`${k} は、0〜5(秒。黒からの入り・黒への出。省略は、無し)`);
-  if (sc.hold !== undefined && !(sc.hold >= 0 && sc.hold <= 5)) err.push('hold は、0〜5(秒。最後の余韻。既定0.5)');
-  if (sc.beatOffset !== undefined && !(sc.beatOffset >= 0 && sc.beatOffset < 10)) err.push('beatOffset は、0〜10(秒。最初の拍の時刻)');
+  const num = v => typeof v === 'number' && Number.isFinite(v);
+  if (sc.bpm !== undefined && !(num(sc.bpm) && sc.bpm >= 40 && sc.bpm <= 240)) err.push('bpm は、40〜240(数)');
+  for (const k of ['fadeIn', 'fadeOut']) if (sc[k] !== undefined && !(num(sc[k]) && sc[k] >= 0 && sc[k] <= 5)) err.push(`${k} は、0〜5(秒。黒からの入り・黒への出。省略は、無し)`);
+  if (sc.hold !== undefined && !(num(sc.hold) && sc.hold >= 0 && sc.hold <= 5)) err.push('hold は、0〜5(秒。最後の余韻。既定0.5。数)');
+  if (sc.beatOffset !== undefined && !(num(sc.beatOffset) && sc.beatOffset >= 0 && sc.beatOffset < 10)) err.push('beatOffset は、0〜10(秒。最初の拍の時刻。数)');
   if (sc.lyrics !== undefined) {
     if (!Array.isArray(sc.lyrics)) err.push('lyrics は、配列にする');
     else {
-      const total = S.reduce((a, s) => a + (s.sec || theme.sceneSec || (theme.total || 20) / S.length), 0);
+      const total = S.reduce((a, s) => a + (s.sec || theme.sceneSec || (theme.total || 20) / S.length), 0) + (num(sc.hold) ? sc.hold : 0.5);      // 動画の長さ = 場面の秒数の合計 + 最後の余韻(hold)
       sc.lyrics.forEach((c, i) => {
         const w = `歌詞${i + 1}`;
         if (!c || typeof c.text !== 'string' || !c.text.trim()) return err.push(`${w}: text が空`);
         if ([...c.text].length > 40) err.push(`${w}: text は40文字以内(「${c.text.slice(0, 12)}…」)。行を分けて、別の歌詞にする`);
-        if (!(c.start >= 0) || !(c.end > c.start)) err.push(`${w}: start と end(秒。start < end)が必要`);
+        if (!(num(c.start) && c.start >= 0) || !(num(c.end) && c.end > c.start)) err.push(`${w}: start と end(秒。start < end)が必要`);
         else if (c.end > total + 1) err.push(`${w}: end ${c.end} が、動画の長さ(約${total.toFixed(1)}秒)を超えている`);
         if (c.fx !== undefined && !(c.fx in LYRIC_FX)) err.push(`${w}: fx 「${c.fx}」は使えない。使えるもの: ${Object.keys(LYRIC_FX).join(', ')}`);
         if (c.pos !== undefined && !(c.pos in LYRIC_POS)) err.push(`${w}: pos 「${c.pos}」は使えない。使えるもの: ${Object.keys(LYRIC_POS).join(', ')}`);
@@ -134,7 +139,7 @@ export function validateTheme(sc, media, theme) {
 }
 
 // ---- 無音の音声を作り、場面の長さ(拍)を、秒数から決める(無音の音声は、曲を重ねる前の土台) ----
-export function silentNarration(scenario, secs, log, bpm = 124) {
+export function silentNarration(scenario, secs, log, bpm = 124, hold = 0.5) {
   const pub = path.join(ROOT, 'public'); fs.mkdirSync(pub, {recursive: true});
   for (const f of fs.readdirSync(pub)) if (/^s\d+\.wav$/.test(f)) fs.rmSync(path.join(pub, f));
   const beat = 60 / bpm;                                                            // 1拍の長さ(秒)。曲のBPMに合わせると、拍ごとの動きが、曲と合う
@@ -144,11 +149,19 @@ export function silentNarration(scenario, secs, log, bpm = 124) {
     if (r.status !== 0) throw new Error('無音の音声を作れなかった: ' + (r.stderr || '').slice(-200));
     log(`  場面${i + 1} ${JSON.stringify(scenario.scenes[i].lines)} → ${(b * beat).toFixed(2)}秒`);
   });
-  return {beats, beat, seconds: +(beats.reduce((a, b) => a + b, 0) * beat + .5).toFixed(2)};
+  return {beats, beat, seconds: +(beats.reduce((a, b) => a + b, 0) * beat + hold).toFixed(2)};          // seconds = 動画の長さ(場面の秒数の合計 + 最後の余韻)
 }
 
 // ---- 素材を、Remotion が読む場所(public/)へ書き出す。scenario.style.lp に渡す形にする ----
-const probe = f => { const r = run('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height:format=duration', '-of', 'json', f]); try { const j = JSON.parse(r.stdout), st = j.streams?.[0]; return st?.width && st?.height ? {w: st.width, h: st.height, dur: +j.format?.duration || 0} : null; } catch { return null; } };
+// 素材の縦横と長さ。スマホで縦に撮った動画は、回転(rotation)のメタデータで縦横が逆になるので、見た目の縦横に直す
+const probe = f => {
+  const r = run('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height:stream_side_data=rotation:stream_tags=rotate:format=duration', '-of', 'json', f]);
+  try {
+    const j = JSON.parse(r.stdout), st = j.streams?.[0]; if (!(st?.width && st?.height)) return null;
+    const rot = Math.abs(Math.round(+(st.side_data_list?.find(d => d.rotation !== undefined)?.rotation ?? st.tags?.rotate ?? 0))) % 180, swap = rot === 90;
+    return {w: swap ? st.height : st.width, h: swap ? st.width : st.height, dur: +j.format?.duration || 0};
+  } catch { return null; }
+};
 export function publishMedia(lp) {
   const pub = path.join(ROOT, 'public'); fs.mkdirSync(pub, {recursive: true});
   for (const f of fs.readdirSync(pub)) if (/^lp_/.test(f)) fs.rmSync(path.join(pub, f));

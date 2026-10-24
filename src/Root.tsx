@@ -40,7 +40,8 @@ const clipFor = (i: number, p: number) => {
     case 22: return rects(Array.from({length: 2}, (_, k) => [k ? W - (W / 2) * cl(p * 1.2) : 0, 0, (W / 2) * cl(p * 1.2) + 1, H]));                                 // 両端から、中央へ閉じる
     case 23: return `circle(${p * 1900}px at 1920px 1080px)`;
     case 24: return rects(Array.from({length: 16}, (_, k) => [k * 120, 0, 121, H * cl(p * 2 - (k % 4) * .22 - Math.floor(k / 4) * .05)]));                           // 縦の帯が、ずれて伸びる
-    default: return `circle(${p * 1700}px at 960px 1080px)`;
+    case 8:
+    default: return `circle(${p * 1700}px at 960px 1080px)`;          // 8 = 下の中央から広がる円(未知の番号も、これになる)
   }
 };
 const Trans: React.FC<{i: number; children: React.ReactNode}> = ({i, children}) => {

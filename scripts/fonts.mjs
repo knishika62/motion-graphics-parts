@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {ROOT} from './common.mjs';
 
+const FETCH_TIMEOUT_MS = 60000;                                                     // 1つの書体のダウンロードの待ち時間。超えたら、その書体なしで続ける
 const BASE = 'https://github.com/google/fonts/raw/main/ofl';
 export const FONT_FILES = [
   ['NotoSansJP.ttf', `${BASE}/notosansjp/NotoSansJP%5Bwght%5D.ttf`],
@@ -18,7 +19,7 @@ export async function ensureFonts(log) {
     const f = path.join(dir, name); if (fs.existsSync(f) && fs.statSync(f).size > 1e6) continue;
     try {
       log(`  書体をダウンロード: ${name}`);
-      const r = await fetch(url); if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const r = await fetch(url, {signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)}); if (!r.ok) throw new Error(`HTTP ${r.status}`);
       fs.writeFileSync(f, Buffer.from(await r.arrayBuffer()));
     } catch (e) { log(`  書体を取得できない(${name}): ${e.message}。この書体なしで続ける`); }
   }

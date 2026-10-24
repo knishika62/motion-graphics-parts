@@ -39,4 +39,3 @@ const RAW = {
 };
 export const ICON_GROUPS = Object.fromEntries(Object.entries(RAW).map(([k, v]) => [k, v.split(/\s+/).filter(n => icons[n])]));
 export const ICON_NAMES = new Set(Object.values(ICON_GROUPS).flat());
-export const iconCatalogText = () => Object.entries(ICON_GROUPS).map(([k, v]) => `${k}: ${v.join(' ')}`).join('\n');

@@ -12,7 +12,7 @@
 
 ## 使い方
 
-必要なもの: Node.js(v20以上)、ffmpeg(`ffprobe` も)。
+必要なもの: Node.js(v20.11以上)、ffmpeg(`ffprobe` も。動作は ffmpeg 9.0.2 で確認。`loudnorm`・`sidechaincompress`・`amix`・`blackdetect`・`ebur128` のフィルタを使う)。
 
 ```bash
 npm install
@@ -76,8 +76,16 @@ node tools/check_face_text.mjs out/名前.mp4 --every 1.5      # 1.5秒ごとに
 | `src/` | Remotion の部品(`compose/`)と、場面の並べ方・場面転換(`Root.tsx`) |
 | `examples/` | お題のmdと台本の見本(`theme_sample`・`music_sample`)、サンプル素材の作成スクリプト |
 | `assets/<名前>/` | 素材(写真・動画)を置く(git 管理外) |
-| `runs/<名前>/` | 台本・ログ・レポート(git 管理外) |
+| `runs/<名前>/` | 台本・ログ・レポート(git 管理外)。AI が書いた `scenario.json` は、書き換えない(雰囲気・配色・素材を解決した台本は `scenario.resolved.json`) |
 | `out/` | 書き出した動画(git 管理外) |
+
+## 開発(部品を足したとき)
+```bash
+npm run parts          # PARTS.md を、部品の定義から作り直す
+npm run parts:check    # PARTS.md が最新か調べる(違えば失敗)
+npm run typecheck      # TypeScript の型検査
+npm test               # 台本の検査・時間の計算・部品名の対応・配色のコントラスト・PARTS.md が最新か、などのテスト
+```
 
 ## 注意
 - **Remotion のライセンスは、このリポジトリのMITとは別です。** このツールは Remotion を使います。利用条件は、[Remotion のライセンスのページ](https://www.remotion.pro/license)を参照してください。

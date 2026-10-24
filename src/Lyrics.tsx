@@ -25,7 +25,7 @@ const width = (s: string) => [...s].reduce((n, c) => n + (/[\u0000-ÿ]/.test(c) 
 
 const Line: React.FC<{cue: Cue; t: number}> = ({cue, t}) => {
   if (t < cue.start || t > cue.end + 0.3) return null;
-  const o = 1 - clamp((t - (cue.end - 0.1)) / 0.3), size = cue.big ? 170 : Math.min(84, 1760 / width(cue.text)), be = beatEnergy(t), ph = phase(t), fx = cue.fx ?? 'bounce';
+  const o = 1 - clamp((t - (cue.end - 0.1)) / 0.3), size = Math.min(cue.big ? 170 : 84, 1760 / width(cue.text)), be = beatEnergy(t), ph = phase(t), fx = cue.fx ?? 'bounce';
   const chars = (KEY ? cue.text.split(KEY).filter(Boolean) : [cue.text]).flatMap(seg => [...seg].map(c => ({c, key: !!KEY && KEY.test(seg)})));
   const amp = cue.big ? 1.5 : 1, stag = cue.big ? 0.05 : 0.04, pos = cue.pos ?? (cue.big ? 'middle' : 'bottom');
   return (

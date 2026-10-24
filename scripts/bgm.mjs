@@ -1,11 +1,11 @@
 // BGM。曲を用意してあればそれを使い、無ければ雰囲気ごとの簡単な曲をコードで合成する(外部のモデル・素材は使わない)。
 // 長さは、動画に合わせて切り、最後にフェードアウトする。
-//   用意する曲: assets/bgm/<雰囲気>.(mp3|wav|m4a|flac)、または assets/bgm/default.*  /  --bgm <ファイル> で直接指定
+//   用意する曲: assets/bgm/<雰囲気>.(mp3|wav|m4a|flac)、または assets/bgm/default.*  /  --bgm-file <ファイル> で直接指定
 import fs from 'node:fs';
 import path from 'node:path';
-import {ROOT, run} from './common.mjs';
+import {ROOT, probeDuration, run} from './common.mjs';
 
-const PROJECT = ROOT;                                                         // auto/(assets/ はこの中)
+const PROJECT = ROOT;                                                         // このリポジトリの直下(assets/ はこの中)
 const SR = 48000;
 // 雰囲気ごとの曲の設計: bpm、コード進行(根音のMIDI番号とコードの種類)、使う楽器
 const NOTE = m => 440 * 2 ** ((m - 69) / 12);
@@ -59,15 +59,17 @@ const EXTS = ['mp3', 'wav', 'm4a', 'flac'];
 const findTrack = base => EXTS.map(e => `${base}.${e}`).find(f => fs.existsSync(f)) || null;
 // 動画に、BGM(用意した曲、またはコード合成の曲)を混ぜる。mp4 をその場で置き換える
 export function mixBgm(mp4, {moodId, track, log, loud = false}) {      // loud: BGMが主役のとき(このリポジトリは、いつも)は、大きめにする
-  const dur = +run('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', mp4]).stdout;
+  let dur; try { dur = probeDuration(mp4); } catch (e) { log('  BGMの混合に失敗: ' + e.message); return false; }
   const dir = path.join(PROJECT, 'assets', 'bgm');
   let src = track && fs.existsSync(path.resolve(track)) ? path.resolve(track) : findTrack(path.join(dir, moodId)) || findTrack(path.join(dir, 'default')), how = src ? `用意した曲(${path.basename(src)})` : '';
-  if (!src) { src = mp4.replace(/\.mp4$/, '.bgm.wav'); synth(moodId, dur, src); how = `コードで合成(${moodId})`; }
+  const synthesized = !src;                                                    // 消してよいのは、ここで合成した一時ファイルだけ(用意した曲は、名前が何であれ、消さない)
+  if (synthesized) { src = mp4.replace(/\.mp4$/, '.synth-bgm.wav'); synth(moodId, dur, src); how = `コードで合成(${moodId})`; }
   const tmp = mp4.replace(/\.mp4$/, '.bgm.mp4');
-  const fl = `[1:a]aloop=loop=-1:size=2e9,atrim=0:${dur.toFixed(2)},afade=t=in:d=1.2,afade=t=out:st=${Math.max(0, dur - 2.5).toFixed(2)}:d=2.5,volume=${loud ? -8 : -20}dB[bgm];` +
+  // 曲が短いときは、入力側で繰り返す(-stream_loop)。繰り返しの長さを、動画に合わせて切る(atrim)
+  const fl = `[1:a]atrim=0:${dur.toFixed(2)},afade=t=in:d=1.2,afade=t=out:st=${Math.max(0, dur - 2.5).toFixed(2)}:d=2.5,volume=${loud ? -8 : -20}dB[bgm];` +
     `[0:a]asplit=2[nar][key];[bgm][key]sidechaincompress=threshold=0.015:ratio=10:attack=15:release=450[duck];[nar][duck]amix=inputs=2:duration=first:normalize=0[a]`;
-  const r = run('ffmpeg', ['-v', 'error', '-y', '-i', mp4, '-i', src, '-filter_complex', fl, '-map', '0:v', '-map', '[a]', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', tmp]);
-  if (src.endsWith('.bgm.wav')) fs.rmSync(src, {force: true});
+  const r = run('ffmpeg', ['-v', 'error', '-y', '-i', mp4, '-stream_loop', '-1', '-i', src, '-filter_complex', fl, '-map', '0:v', '-map', '[a]', '-t', dur.toFixed(3), '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', tmp]);
+  if (synthesized) fs.rmSync(src, {force: true});
   if (r.status !== 0) { log('  BGMの混合に失敗: ' + (r.stderr || '').slice(-300)); fs.rmSync(tmp, {force: true}); return false; }
   fs.renameSync(tmp, mp4); log(`  BGM: ${how}`); return true;
 }

@@ -2,9 +2,7 @@
 //   黒: 真っ黒に近い画面が0.3秒以上続く(書き出しの失敗の検出)
 //   点滅: 1秒の間に、画面全体の明るさが大きく変わる回数(3回/秒を超えると、見る人に負担。WCAGの目安)
 //   はみ出し: 文字の色の画素が、画面の端(安全な範囲の外)にあるか。場面ごとに数コマ見る
-import fs from 'node:fs';
-import path from 'node:path';
-import {ROOT, frames, run} from './common.mjs';
+import {probeDuration, run} from './common.mjs';
 
 const W = 1920, H = 1080, MX = Math.round(W * .025), MY = Math.round(H * .025);          // 画面の端から2.5%より外側を、はみ出しとみなす
 const lum = (r, g, b) => { const f = c => { c /= 255; return c <= .03928 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4; }; return .2126 * f(r) + .7152 * f(g) + .0722 * f(b); };
@@ -29,8 +27,8 @@ function edgeInk(buf) {
   }
   return {n, ink};
 }
-export function measureVideo(mp4, beats, log) {
-  const out = {black: [], flicker: 0, edge: []}, dur = +run('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', mp4]).stdout;
+export function measureVideo(mp4, timeline, log) {                     // timeline: render.mjs が作る makeTimeline() の結果(開始フレーム・長さ)
+  const out = {black: [], flicker: 0, edge: []}, dur = probeDuration(mp4);
   // 黒
   const bd = run('ffmpeg', ['-hide_banner', '-i', mp4, '-vf', 'blackdetect=d=0.3:pic_th=0.98:pix_th=0.04', '-an', '-f', 'null', '-']).stderr.match(/black_start:[\d.]+/g) || [];
   out.black = bd.map(s => +s.split(':')[1]);
@@ -39,7 +37,7 @@ export function measureVideo(mp4, beats, log) {
   const fps = ys.length / dur, jumps = ys.map((y, i) => (i && Math.abs(y - ys[i - 1]) >= 20 ? i : -1)).filter(i => i >= 0);
   for (const j of jumps) out.flicker = Math.max(out.flicker, jumps.filter(k => k >= j && k < j + fps).length);
   // はみ出し: 場面ごとに、40%・70%・92%のコマ
-  const {starts, lens} = frames(beats);
+  const {starts, lens} = timeline;
   starts.forEach((s, i) => { let worst = 0; for (const p of [.4, .7, .92]) { const b = frameRaw(mp4, Math.min(dur - .1, (s + lens[i] * p) / 60)); if (b) worst = Math.max(worst, edgeInk(b).n); } out.edge.push(worst); });
   const edgeNg = out.edge.map((n, i) => (n > 120 ? i + 1 : 0)).filter(Boolean);
   log(`  計測: 黒 ${out.black.length ? out.black.map(t => t.toFixed(1) + 's').join(',') : 'なし'} / 点滅 最大${out.flicker}回/秒${out.flicker > 3 ? '(3回/秒を超える)' : ''} / 画面の端への文字のはみ出し ${edgeNg.length ? '場面 ' + edgeNg.join(',') : 'なし'}`);
